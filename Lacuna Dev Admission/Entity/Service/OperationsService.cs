@@ -1,5 +1,8 @@
 ﻿using Newtonsoft.Json;
+using System;
+using System.Net.Http.Headers;
 using System.Text;
+using static System.Net.Mime.MediaTypeNames;
 
 namespace Lacuna_Dev_Admission.Entity.Service
 {
@@ -7,29 +10,52 @@ namespace Lacuna_Dev_Admission.Entity.Service
     {
         private static readonly HttpClient client = new()
         {
-            BaseAddress = new Uri("https://gene.lacuna.cc/")
+            BaseAddress = new Uri("https://gene.lacuna.cc/"),
+            
         };
         public async Task OperationJobs()
         {
             Console.Clear();
+            if (string.IsNullOrEmpty(Environment.GetEnvironmentVariable("Token")))
+            {
+                Console.WriteLine("You need to login first");
+                Console.WriteLine("Press any key to continue");
+                Console.ReadKey();
+                return;
+            }
             Console.WriteLine("Get Jobs...");
-            client.DefaultRequestHeaders.Add("Authorization", $"Bearer {UserService.GetToken()}");
+            client.DefaultRequestHeaders.Authorization = new AuthenticationHeaderValue("Bearer", Environment.GetEnvironmentVariable("Token"));
             ResponseJobsDna? respose = await GetJobs();
-            Console.WriteLine("\nDesencode...");
-            Response decoderesponse = await DecodeJob(respose.job.id, respose.job.strandEncoded);
-            Console.WriteLine($"Decode Response Code: {decoderesponse.code}");
-            Console.WriteLine($"Decode Response Message: {decoderesponse.message}");
-            EncodingService encoserv = new();
-            string decodedStrand = encoserv.DecodeBase64Strand(respose.job.strandEncoded);
-            Console.WriteLine("\nEncode...");
-            Response encoderesponse = await EncodeJob(respose.job.id, decodedStrand);
-            Console.WriteLine($"Encode Response Code: {encoderesponse.code}");
-            Console.WriteLine($"Encode Response Message: {encoderesponse.message}");
-            bool Activated = CheckGeneActive(decodedStrand);
-            Console.WriteLine("\nCheck Gene...");
-            Response checkresponse = await CheckGene(respose.job.id, Activated);
-            Console.WriteLine($"Check Gene Response Code: {checkresponse.code}");
-            Console.WriteLine($"Check Gene Response Message: {checkresponse.message}");
+            
+            // Operation types ['DecodeStrand', 'EncodeStrand', 'CheckGene']
+            Console.WriteLine(respose.Job.Type);
+            switch (respose.Job.Type)
+            {
+                case "DecodeStrand":
+                    Console.WriteLine("Decode Strand...");
+                    Console.WriteLine(respose.Job.Id);
+                    Console.WriteLine(respose.Job.StrandEncoded);
+                    Response decoderesponse = await DecodeJob(respose.Job.Id, respose.Job.StrandEncoded);
+                    Console.WriteLine($"Decode Response Code: {decoderesponse.Code}");
+                    Console.WriteLine($"Decode Response Message: {decoderesponse.Message}");
+                    break;
+                /*case "EncodeStrand":
+                    
+                    Console.WriteLine("\nEncode...");
+                    Console.WriteLine(respose.Job.Strand);
+                    
+                    Response encoderesponse = await EncodeJob(respose.Job.Id, respose.Job.Strand);
+                    Console.WriteLine($"Encode Response Code: {encoderesponse.Code}");
+                    Console.WriteLine($"Encode Response Message: {encoderesponse.Message}");
+                    break
+                /*case "CheckGene":
+                    bool Activated = CheckGeneActive(respose.Job.Strand);
+                    Console.WriteLine("\nCheck Gene...");
+                    Response checkresponse = await CheckGene(respose.Job.Id, Activated);
+                    Console.WriteLine($"Check Gene Response Code: {checkresponse.Code}");
+                    Console.WriteLine($"Check Gene Response Message: {checkresponse.Message}");
+                    break;*/
+            }
         }
         private static async Task<ResponseJobsDna> GetJobs()
         {
@@ -37,29 +63,32 @@ namespace Lacuna_Dev_Admission.Entity.Service
             ResponseJobsDna jobs = JsonConvert.DeserializeObject<ResponseJobsDna>(responseContent);
             return jobs;
         }
-        private static async Task<Response> DecodeJob(string id, string strand)
+        private static async Task<Response> DecodeJob(string id, string StrandEncoded)
         {
-
-            byte[] base64EncodedBytes = Convert.FromBase64String(strand);
-            string genedecode = Encoding.UTF8.GetString(base64EncodedBytes);
+            EncodingService encoserv = new();
+            string decodedStrand = encoserv.StringToBinaryBase64(StrandEncoded);
+            Console.WriteLine(decodedStrand);
             Dictionary<string, string> requestBody = new()
                 {
-                    { "strand", genedecode }
+                    { "strand", StrandEncoded }
                 };
             HttpResponseMessage response = await client.PostAsync($"/api/dna/jobs/{id}/decode", new FormUrlEncodedContent(requestBody));
             string responseContent = await response.Content.ReadAsStringAsync();
+            Console.WriteLine(responseContent);
             return JsonConvert.DeserializeObject<Response>(responseContent);
-
-
         }
-        private static async Task<Response> EncodeJob(string id, string strandEncoded)
+        private static async Task<Response> EncodeJob(string id, string Strand)
         {
-            StringContent content = new(JsonConvert.SerializeObject(new
+            EncodingService encoserv = new();
+            string strandbase64 = encoserv.StringToBinaryBase64(Strand);
+            Console.WriteLine(strandbase64);
+            Dictionary<string, string> requestBody = new()
             {
-                strandEncoded
-            }), Encoding.UTF8, "application/json");
-            var response = await client.PostAsync($"/api/dna/jobs/{id}/encode", content);
+                { "strandEncoded", strandbase64 }
+                };
+            var response = await client.PostAsync($"/api/dna/jobs/{id}/encode", new FormUrlEncodedContent(requestBody));
             var responseContent = await response.Content.ReadAsStringAsync();
+            Console.WriteLine(responseContent);
             return JsonConvert.DeserializeObject<Response>(responseContent);
         }
         private static async Task<Response> CheckGene(string id, bool isActivated)

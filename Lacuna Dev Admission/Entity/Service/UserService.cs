@@ -1,4 +1,5 @@
 ﻿using Newtonsoft.Json;
+using System;
 using System.Text;
 
 namespace Lacuna_Dev_Admission.Entity.Service
@@ -9,12 +10,7 @@ namespace Lacuna_Dev_Admission.Entity.Service
         {
             BaseAddress = new Uri("https://gene.lacuna.cc/")
         };
-        private static string Token { get; set; } = null;
 
-        internal static string GetToken()
-        {
-            return Token;
-        }
         public async Task CreateUser()
         {
             User user = new();
@@ -26,8 +22,8 @@ namespace Lacuna_Dev_Admission.Entity.Service
             user.password = Console.ReadLine();
             Console.WriteLine("Criando Usuario...");
             ResponseCreateUser respose = await CreateUserAsync(user);
-            Console.WriteLine(respose.code);
-            Console.WriteLine(respose.message);
+            Console.WriteLine(respose.Code);
+            Console.WriteLine(respose.Message);
         }
         public async Task LoginUser()
         {
@@ -39,10 +35,11 @@ namespace Lacuna_Dev_Admission.Entity.Service
             Console.WriteLine("Password: ");
             login.password = Console.ReadLine();
             Console.WriteLine("Logando...");
-            ResponseLoginUser response = await LoginUserAsync(login);
-            if (response.code == "Success")
+            Response response = await LoginUserAsync(login);
+            if (response.Code == "Success")
             {
-                Token = response.accessToken;
+                Environment.SetEnvironmentVariable("Token", response.AccessToken);
+                Console.WriteLine(response.AccessToken);
                 Console.WriteLine("Logado com sucesso.");
             }
             else
@@ -61,18 +58,18 @@ namespace Lacuna_Dev_Admission.Entity.Service
             ResponseCreateUser responseUser = JsonConvert.DeserializeObject<ResponseCreateUser>(responseContent);
             return responseUser;
         }
-        private static async Task<ResponseLoginUser> LoginUserAsync(LoginUser user)
+        private static async Task<Response> LoginUserAsync(LoginUser user)
         {
             StringContent content = new(JsonConvert.SerializeObject(user), Encoding.UTF8, "application/json");
             HttpResponseMessage response = await client.PostAsync("/api/users/login", content);
             string responseContent = await response.Content.ReadAsStringAsync();
-            ResponseLoginUser responseUser = JsonConvert.DeserializeObject<ResponseLoginUser>(responseContent);
+            Response responseUser = JsonConvert.DeserializeObject<Response>(responseContent);
             return responseUser;
         }
 
         public static async Task Exit()
         {
-            Token = null;
+            Environment.SetEnvironmentVariable("token", null);
         }
     }
 }

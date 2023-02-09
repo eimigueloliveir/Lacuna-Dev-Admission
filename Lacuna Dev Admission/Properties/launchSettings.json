@@ -1,0 +1,11 @@
+{
+  "profiles": {
+    "Lacuna Dev Admission": {
+      "commandName": "Project"
+    },
+    "WSL": {
+      "commandName": "WSL2",
+      "distributionName": ""
+    }
+  }
+}
