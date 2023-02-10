@@ -67,9 +67,10 @@ namespace Lacuna_Dev_Admission.Entity.Service
             return responseUser;
         }
 
-        public static async Task Exit()
+        public static Task Exit()
         {
             Environment.SetEnvironmentVariable("token", null);
+            return Task.CompletedTask;
         }
     }
 }

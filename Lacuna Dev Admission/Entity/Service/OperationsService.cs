@@ -39,7 +39,7 @@ namespace Lacuna_Dev_Admission.Entity.Service
                     Console.WriteLine($"Decode Response Code: {decoderesponse.Code}");
                     Console.WriteLine($"Decode Response Message: {decoderesponse.Message}");
                     break;
-                /*case "EncodeStrand":
+                case "EncodeStrand":
                     
                     Console.WriteLine("\nEncode...");
                     Console.WriteLine(respose.Job.Strand);
@@ -47,14 +47,14 @@ namespace Lacuna_Dev_Admission.Entity.Service
                     Response encoderesponse = await EncodeJob(respose.Job.Id, respose.Job.Strand);
                     Console.WriteLine($"Encode Response Code: {encoderesponse.Code}");
                     Console.WriteLine($"Encode Response Message: {encoderesponse.Message}");
-                    break
-                /*case "CheckGene":
-                    bool Activated = CheckGeneActive(respose.Job.Strand);
+                    break;
+                case "CheckGene":
+                    
                     Console.WriteLine("\nCheck Gene...");
-                    Response checkresponse = await CheckGene(respose.Job.Id, Activated);
+                    Response checkresponse = await CheckGene(respose.Job.Id, respose.Job.GeneEncoded, respose.Job.StrandEncoded); ;
                     Console.WriteLine($"Check Gene Response Code: {checkresponse.Code}");
                     Console.WriteLine($"Check Gene Response Message: {checkresponse.Message}");
-                    break;*/
+                    break;
             }
         }
         private static async Task<ResponseJobsDna> GetJobs()
@@ -66,13 +66,11 @@ namespace Lacuna_Dev_Admission.Entity.Service
         private static async Task<Response> DecodeJob(string id, string StrandEncoded)
         {
             EncodingService encoserv = new();
-            string decodedStrand = encoserv.StringToBinaryBase64(StrandEncoded);
+            string decodedStrand = encoserv.StringBase64ToBinaryString(StrandEncoded);
             Console.WriteLine(decodedStrand);
-            Dictionary<string, string> requestBody = new()
-                {
-                    { "strand", StrandEncoded }
-                };
-            HttpResponseMessage response = await client.PostAsync($"/api/dna/jobs/{id}/decode", new FormUrlEncodedContent(requestBody));
+            var json = JsonConvert.SerializeObject(new { strand = decodedStrand });
+            StringContent content = new(json, Encoding.UTF8, "application/json");
+            HttpResponseMessage response = await client.PostAsync($"/api/dna/jobs/{id}/decode", content);
             string responseContent = await response.Content.ReadAsStringAsync();
             Console.WriteLine(responseContent);
             return JsonConvert.DeserializeObject<Response>(responseContent);
@@ -80,24 +78,38 @@ namespace Lacuna_Dev_Admission.Entity.Service
         private static async Task<Response> EncodeJob(string id, string Strand)
         {
             EncodingService encoserv = new();
-            string strandbase64 = encoserv.StringToBinaryBase64(Strand);
+            string strandbase64 = encoserv.BinaryStringToString(Strand);
             Console.WriteLine(strandbase64);
-            Dictionary<string, string> requestBody = new()
-            {
-                { "strandEncoded", strandbase64 }
-                };
-            var response = await client.PostAsync($"/api/dna/jobs/{id}/encode", new FormUrlEncodedContent(requestBody));
+            var json = JsonConvert.SerializeObject(new { strandEncoded = strandbase64 });
+            StringContent content = new(json, Encoding.UTF8, "application/json");
+            var response = await client.PostAsync($"/api/dna/jobs/{id}/encode", content);
             var responseContent = await response.Content.ReadAsStringAsync();
             Console.WriteLine(responseContent);
             return JsonConvert.DeserializeObject<Response>(responseContent);
         }
-        private static async Task<Response> CheckGene(string id, bool isActivated)
+        private static async Task<Response> CheckGene(string id, string geneEncoded, string strandEncoded)
         {
-            Dictionary<string, string> requestBody = new()
-                {
-                    { "isActivated", isActivated.ToString() }
-                };
-            var response = await client.PostAsync($"/api/dna/jobs/{id}/gene", new FormUrlEncodedContent(requestBody));
+            EncodingService encoserv = new();
+            string genedecode = encoserv.StringBase64ToBinaryString(geneEncoded);
+            string stranddecode = encoserv.StringBase64ToBinaryString(strandEncoded);
+
+            int geneLength = genedecode.Length;
+            int matchCount = 0;
+
+            for (int i = 0; i < stranddecode.Length - geneLength + 1; i++)
+            {
+                string segment = stranddecode.Substring(i, geneLength);
+
+                matchCount += stranddecode.Where((c, j) => segment[j] == c).Count();
+            }
+
+            bool isActivated = (double)matchCount / geneLength > 0.5;
+
+
+            var json = JsonConvert.SerializeObject(new { isActivated = isActivated });
+            StringContent content = new(json, Encoding.UTF8, "application/json");
+
+            var response = await client.PostAsync($"/api/dna/jobs/{id}/gene", content);
             var responseContent = await response.Content.ReadAsStringAsync();
             return JsonConvert.DeserializeObject<Response>(responseContent);
         }
