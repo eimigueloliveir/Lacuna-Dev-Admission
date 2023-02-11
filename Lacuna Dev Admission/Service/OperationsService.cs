@@ -1,8 +1,9 @@
-﻿using Newtonsoft.Json;
+﻿using Lacuna_Dev_Admission.Entity;
+using Newtonsoft.Json;
 using System.Net.Http.Headers;
 using System.Text;
 
-namespace Lacuna_Dev_Admission.Entity.Service
+namespace Lacuna_Dev_Admission.Service
 {
     public class OperationsService
     {
@@ -24,8 +25,7 @@ namespace Lacuna_Dev_Admission.Entity.Service
             Console.WriteLine("Get Jobs...");
             client.DefaultRequestHeaders.Authorization = new AuthenticationHeaderValue("Bearer", Environment.GetEnvironmentVariable("Token"));
             ResponseJobsDna? respose = await GetJobs();
-
-            // Operation types ['DecodeStrand', 'EncodeStrand', 'CheckGene']
+            //Operation types ['DecodeStrand', 'EncodeStrand', 'CheckGene']
             Console.WriteLine($"Job received: {respose.Job.Type}");
             switch (respose.Job.Type)
             {
@@ -142,7 +142,7 @@ namespace Lacuna_Dev_Admission.Entity.Service
                         matchCount++;
                     }
                 }
-                return (double)matchCount / (double)dnaTemplateStrand.Length >= 0.5;
+                return matchCount / (double)dnaTemplateStrand.Length >= 0.5;
             }
             return IsGeneActivated(gene, strand);
         }

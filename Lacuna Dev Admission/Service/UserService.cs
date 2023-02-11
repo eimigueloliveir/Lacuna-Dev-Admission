@@ -1,7 +1,8 @@
-﻿using Newtonsoft.Json;
+﻿using Lacuna_Dev_Admission.Entity;
+using Newtonsoft.Json;
 using System.Text;
 
-namespace Lacuna_Dev_Admission.Entity.Service
+namespace Lacuna_Dev_Admission.Service
 {
     public class UserService
     {
@@ -65,10 +66,9 @@ namespace Lacuna_Dev_Admission.Entity.Service
             return responseUser;
         }
 
-        public static Task Exit()
+        public async Task Exit()
         {
-            Environment.SetEnvironmentVariable("token", null);
-            return Task.CompletedTask;
+            Environment.SetEnvironmentVariable("Token", null);
         }
     }
 }

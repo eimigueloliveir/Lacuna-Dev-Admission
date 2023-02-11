@@ -1,6 +1,6 @@
 ﻿using System.Text;
 
-namespace Lacuna_Dev_Admission.Entity.Service
+namespace Lacuna_Dev_Admission.Service
 {
     internal class EncodingService
     {

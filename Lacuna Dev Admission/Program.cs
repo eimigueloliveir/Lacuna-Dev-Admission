@@ -1,5 +1,4 @@
-﻿using Lacuna_Dev_Admission.Entity.Service;
-
+﻿using Lacuna_Dev_Admission.Service;
 
 namespace Lacuna_Dev_Admission
 {
@@ -36,7 +35,7 @@ namespace Lacuna_Dev_Admission
                         operations.OperationJobs().Wait();
                         break;
                     case "4":
-                        //service.Exit();
+                        service.Exit().Wait();
                         Console.WriteLine("Exit");
                         break;
                     default:
