@@ -91,29 +91,10 @@ namespace Lacuna_Dev_Admission.Entity.Service
             EncodingService encoserv = new();
             string genedecode = encoserv.StringBase64ToBinaryString(geneEncoded);
             string stranddecode = encoserv.StringBase64ToBinaryString(strandEncoded);
-
-            int geneLength = genedecode.Length;
-            int count = 0;
-
-
-            for (int i = 0; i < stranddecode.Length - geneLength + 1; i++)
-            {
-                string segment = stranddecode.Substring(i, geneLength);
-
-                if (segment.Contains(genedecode))
-                {
-                    count++;
-                }
-            }
-
-            double activationPercentage = (double)count / (stranddecode.Length - geneLength + 1) * 100;
-
-            bool isActivated = activationPercentage > 50;
-
+            bool isActivated = CheckGeneActive(genedecode, stranddecode);
             Console.WriteLine(isActivated);
             var json = JsonConvert.SerializeObject(new { isActivated });
             StringContent content = new(json, Encoding.UTF8, "application/json");
-
             var response = await client.PostAsync($"/api/dna/jobs/{id}/gene", content);
             var responseContent = await response.Content.ReadAsStringAsync();
             Console.WriteLine(responseContent);
