@@ -1,5 +1,4 @@
 ﻿using Newtonsoft.Json;
-using System;
 using System.Text;
 
 namespace Lacuna_Dev_Admission.Entity.Service
@@ -39,7 +38,6 @@ namespace Lacuna_Dev_Admission.Entity.Service
             if (response.Code == "Success")
             {
                 Environment.SetEnvironmentVariable("Token", response.AccessToken);
-                Console.WriteLine(response.AccessToken);
                 Console.WriteLine("Logado com sucesso.");
             }
             else

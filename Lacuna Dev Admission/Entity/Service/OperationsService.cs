@@ -1,8 +1,6 @@
 ﻿using Newtonsoft.Json;
-using System;
 using System.Net.Http.Headers;
 using System.Text;
-using static System.Net.Mime.MediaTypeNames;
 
 namespace Lacuna_Dev_Admission.Entity.Service
 {
@@ -11,7 +9,7 @@ namespace Lacuna_Dev_Admission.Entity.Service
         private static readonly HttpClient client = new()
         {
             BaseAddress = new Uri("https://gene.lacuna.cc/"),
-            
+
         };
         public async Task OperationJobs()
         {
@@ -26,34 +24,39 @@ namespace Lacuna_Dev_Admission.Entity.Service
             Console.WriteLine("Get Jobs...");
             client.DefaultRequestHeaders.Authorization = new AuthenticationHeaderValue("Bearer", Environment.GetEnvironmentVariable("Token"));
             ResponseJobsDna? respose = await GetJobs();
-            
+
             // Operation types ['DecodeStrand', 'EncodeStrand', 'CheckGene']
-            Console.WriteLine(respose.Job.Type);
+            Console.WriteLine($"Job received: {respose.Job.Type}");
             switch (respose.Job.Type)
             {
                 case "DecodeStrand":
                     Console.WriteLine("Decode Strand...");
-                    Console.WriteLine(respose.Job.Id);
-                    Console.WriteLine(respose.Job.StrandEncoded);
                     Response decoderesponse = await DecodeJob(respose.Job.Id, respose.Job.StrandEncoded);
                     Console.WriteLine($"Decode Response Code: {decoderesponse.Code}");
-                    Console.WriteLine($"Decode Response Message: {decoderesponse.Message}");
+                    if (decoderesponse.Code != "Success")
+                    {
+                        Console.WriteLine($"Erro: {decoderesponse.Message}");
+                    }
                     break;
                 case "EncodeStrand":
-                    
-                    Console.WriteLine("\nEncode...");
-                    Console.WriteLine(respose.Job.Strand);
-                    
+
+                    Console.WriteLine("Encode...");
                     Response encoderesponse = await EncodeJob(respose.Job.Id, respose.Job.Strand);
                     Console.WriteLine($"Encode Response Code: {encoderesponse.Code}");
-                    Console.WriteLine($"Encode Response Message: {encoderesponse.Message}");
+                    if (encoderesponse.Code != "Success")
+                    {
+                        Console.WriteLine($"Erro: {encoderesponse.Message}");
+                    }
                     break;
                 case "CheckGene":
-                    
-                    Console.WriteLine("\nCheck Gene...");
-                    Response checkresponse = await CheckGene(respose.Job.Id, respose.Job.GeneEncoded, respose.Job.StrandEncoded); ;
+
+                    Console.WriteLine("Check Gene...");
+                    Response checkresponse = await CheckGene(respose.Job.Id, respose.Job.GeneEncoded, respose.Job.StrandEncoded);
                     Console.WriteLine($"Check Gene Response Code: {checkresponse.Code}");
-                    Console.WriteLine($"Check Gene Response Message: {checkresponse.Message}");
+                    if (checkresponse.Code != "Success")
+                    {
+                        Console.WriteLine($"Erro: {checkresponse.Message}");
+                    }
                     break;
             }
         }
@@ -67,24 +70,20 @@ namespace Lacuna_Dev_Admission.Entity.Service
         {
             EncodingService encoserv = new();
             string decodedStrand = encoserv.StringBase64ToBinaryString(StrandEncoded);
-            Console.WriteLine(decodedStrand);
             var json = JsonConvert.SerializeObject(new { strand = decodedStrand });
             StringContent content = new(json, Encoding.UTF8, "application/json");
             HttpResponseMessage response = await client.PostAsync($"/api/dna/jobs/{id}/decode", content);
             string responseContent = await response.Content.ReadAsStringAsync();
-            Console.WriteLine(responseContent);
             return JsonConvert.DeserializeObject<Response>(responseContent);
         }
         private static async Task<Response> EncodeJob(string id, string Strand)
         {
             EncodingService encoserv = new();
             string strandbase64 = encoserv.BinaryStringToString(Strand);
-            Console.WriteLine(strandbase64);
             var json = JsonConvert.SerializeObject(new { strandEncoded = strandbase64 });
             StringContent content = new(json, Encoding.UTF8, "application/json");
             var response = await client.PostAsync($"/api/dna/jobs/{id}/encode", content);
             var responseContent = await response.Content.ReadAsStringAsync();
-            Console.WriteLine(responseContent);
             return JsonConvert.DeserializeObject<Response>(responseContent);
         }
         private static async Task<Response> CheckGene(string id, string geneEncoded, string strandEncoded)
@@ -94,40 +93,77 @@ namespace Lacuna_Dev_Admission.Entity.Service
             string stranddecode = encoserv.StringBase64ToBinaryString(strandEncoded);
 
             int geneLength = genedecode.Length;
-            int matchCount = 0;
+            int count = 0;
+
 
             for (int i = 0; i < stranddecode.Length - geneLength + 1; i++)
             {
                 string segment = stranddecode.Substring(i, geneLength);
 
-                matchCount += stranddecode.Where((c, j) => segment[j] == c).Count();
+                if (segment.Contains(genedecode))
+                {
+                    count++;
+                }
             }
 
-            bool isActivated = (double)matchCount / geneLength > 0.5;
+            double activationPercentage = (double)count / (stranddecode.Length - geneLength + 1) * 100;
 
+            bool isActivated = activationPercentage > 50;
 
-            var json = JsonConvert.SerializeObject(new { isActivated = isActivated });
+            Console.WriteLine(isActivated);
+            var json = JsonConvert.SerializeObject(new { isActivated });
             StringContent content = new(json, Encoding.UTF8, "application/json");
 
             var response = await client.PostAsync($"/api/dna/jobs/{id}/gene", content);
             var responseContent = await response.Content.ReadAsStringAsync();
+            Console.WriteLine(responseContent);
             return JsonConvert.DeserializeObject<Response>(responseContent);
         }
-        private static bool CheckGeneActive(string gene)
+        private static bool CheckGeneActive(string gene, string strand)
         {
-            string dnaTemplateStrand = "CATCTCAGTCCTACTAAACTCGCGAAGCTCATACTAGCTACTAAACCGCTAGACTGCATGATCGCATAGCTAGCTACGCT";
-            int count = 0;
-            for (int i = 0; i < gene.Length; i++)
+            if (!strand.StartsWith("CAT"))
             {
-                int index = dnaTemplateStrand.IndexOf(gene[i]);
-                if (index != -1)
-                {
-                    count++;
-                    dnaTemplateStrand = dnaTemplateStrand.Remove(index, 1);
-                }
+                strand = GetComplementaryStrand(strand);
             }
-
-            return count >= (gene.Length / 2);
+            string GetComplementaryStrand(string strand)
+            {
+                StringBuilder complementaryStrand = new StringBuilder();
+                foreach (char nucleobase in strand)
+                {
+                    switch (nucleobase)
+                    {
+                        case 'A':
+                            complementaryStrand.Append('T');
+                            break;
+                        case 'T':
+                            complementaryStrand.Append('A');
+                            break;
+                        case 'C':
+                            complementaryStrand.Append('G');
+                            break;
+                        case 'G':
+                            complementaryStrand.Append('C');
+                            break;
+                        default:
+                            break;
+                    }
+                }
+                return complementaryStrand.ToString();
+            }
+            bool IsGeneActivated(string gene, string dnaTemplateStrand)
+            {
+                int geneLength = gene.Length;
+                int matchCount = 0;
+                for (int i = 0; i < dnaTemplateStrand.Length - geneLength + 1; i++)
+                {
+                    if (dnaTemplateStrand.Substring(i, geneLength) == gene)
+                    {
+                        matchCount++;
+                    }
+                }
+                return (double)matchCount / (double)dnaTemplateStrand.Length >= 0.5;
+            }
+            return IsGeneActivated(gene, strand);
         }
     }
 }
